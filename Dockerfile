@@ -16,29 +16,30 @@ COPY . .
 # Downgrade setuptools PRIMERO para que gym antiguo pueda instalarse
 RUN pip install "setuptools==65.5.0"
 
-# Core dependencies con versiones corregidas
-RUN pip install coloredlogs==15.0.1
-RUN pip install numpy==1.22.0
-RUN pip install pandas==1.2.4
-RUN pip install pomegranate==0.14.6
-RUN pip install psutil==5.8.0
-RUN pip install scipy==1.10.0
-RUN pip install termcolor
-RUN pip install "ray[rllib]==1.13.0"
+# Todas las dependencias en una sola capa
+RUN pip install --no-cache-dir \
+    coloredlogs==15.0.1 \
+    numpy==1.22.0 \
+    pandas==1.2.4 \
+    pomegranate==0.14.6 \
+    psutil==5.8.0 \
+    scipy==1.10.0 \
+    termcolor \
+    "ray[rllib]==1.13.0" \
+    p_tqdm==1.3.3 \
+    pre-commit==2.13 \
+    pytest==6.2.4 \
+    pytest-cov==2.12.1 \
+    sphinx==3.5.4 \
+    sphinx-autodoc-typehints==1.12.0 \
+    sphinx-book-theme==0.0.42
 
-# Dev dependencies
-RUN pip install p_tqdm==1.3.3
-RUN pip install pre-commit==2.13
-RUN pip install pytest==6.2.4
-RUN pip install pytest-cov==2.12.1
-RUN pip install sphinx==3.5.4
-RUN pip install sphinx-autodoc-typehints==1.12.0
-RUN pip install sphinx-book-theme==0.0.42
-
-# Instalar módulos de ABIDES desde el submódulo
-RUN cd abides-jpmc-public/abides-core && python3 setup.py install && cd ../..
-RUN cd abides-jpmc-public/abides-markets && python3 setup.py install && cd ../..
-RUN cd abides-jpmc-public/abides-gym && python3 setup.py install && cd ../..
+# Instalar módulos de ABIDES
+RUN cd abides-jpmc-public/abides-core && python3 setup.py install && \
+    cd ../abides-markets && python3 setup.py install && \
+    cd ../abides-gym && python3 setup.py install
 
 # Comando por defecto al arrancar el contenedor
+# Alias para probar ABIDES fácilmente
+RUN echo 'alias test-abides="abides abides-jpmc-public/abides-markets/abides_markets/configs/rmsc04.py --end_time 10:00:00"' >> ~/.bashrc
 CMD ["/bin/bash"]
