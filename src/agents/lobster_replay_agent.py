@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from typing import Optional
@@ -40,20 +41,46 @@ class LOBSTERReplayAgent(TradingAgent):
         # Ignorar tipo 7 (trading halt)
         self.messages = self.messages[self.messages["type"] != 7].reset_index(drop=True)
 
+        # Cargar estado inicial del libro si existe el fichero orderbook
+        ob_file = f"{filepath}/{symbol}_{date}_34200000_57600000_orderbook_{num_levels}.csv"
+        if os.path.exists(ob_file):
+            self.initial_orderbook = pd.read_csv(ob_file, header=None).iloc[0].tolist()
+        else:
+            self.initial_orderbook = None
+        self.num_levels = num_levels
+
         # Índice del evento actual
         self.current_idx = 0
+
+        # Flag para pre-poblar el libro en el primer wakeup
+        self._orderbook_initialized = False
 
         # Diccionario para trackear órdenes activas: order_id -> LimitOrder
         self.active_orders = {}
 
     def kernel_starting(self, start_time: NanosecondTime) -> None:
         super().kernel_starting(start_time)
-        # Programar primer wakeup en el timestamp del primer evento
+        # start_time es medianoche del día en ns desde época Unix.
+        # Los timestamps de LOBSTER son ns desde medianoche, así que sumamos ambos.
+        self._start_time = start_time
         first_event_time = self.messages.iloc[0]["time_ns"]
-        self.set_wakeup(self.mkt_open + first_event_time)
+        self.set_wakeup(self._start_time + first_event_time)
 
     def wakeup(self, current_time: NanosecondTime) -> None:
         super().wakeup(current_time)
+
+        # Pre-poblar el libro con el estado inicial en el primer wakeup
+        if not self._orderbook_initialized and self.initial_orderbook is not None:
+            self._orderbook_initialized = True
+            for i in range(self.num_levels):
+                ask_price = int(self.initial_orderbook[i * 4])
+                ask_size  = int(self.initial_orderbook[i * 4 + 1])
+                bid_price = int(self.initial_orderbook[i * 4 + 2])
+                bid_size  = int(self.initial_orderbook[i * 4 + 3])
+                if ask_price > 0 and ask_size > 0:
+                    self.place_limit_order(self.symbol, ask_size, Side.ASK, ask_price)
+                if bid_price > 0 and bid_size > 0:
+                    self.place_limit_order(self.symbol, bid_size, Side.BID, bid_price)
 
         # Si hemos procesado todos los eventos, terminar
         if self.current_idx >= len(self.messages):
@@ -71,7 +98,7 @@ class LOBSTERReplayAgent(TradingAgent):
         # Programar el siguiente wakeup si quedan eventos
         if self.current_idx < len(self.messages):
             next_time = self.messages.iloc[self.current_idx]["time_ns"]
-            self.set_wakeup(self.mkt_open + next_time)
+            self.set_wakeup(self._start_time + next_time)
 
     def _process_event(self, event) -> None:
         order_type = event["type"]
