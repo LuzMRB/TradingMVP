@@ -17,7 +17,7 @@ from abides_core import NanosecondTime
 from abides_core.utils import str_to_ns
 from abides_markets.agents import ExchangeAgent
 from abides_markets.oracles import Oracle
-from abides_markets.utils import generate_latency_model
+from abides_core import LatencyModel
 
 from src.agents.lobster_replay_agent import LOBSTERReplayAgent
 from src.agents.buy_and_hold_agent import BuyAndHoldAgent
@@ -93,7 +93,12 @@ def build_config(
         "start_time": mkt_open,
         "stop_time": mkt_close + str_to_ns("1s"),
         "agents": agents,
-        "agent_latency_model": generate_latency_model(len(agents), latency_type="no_latency"),
+        "agent_latency_model": LatencyModel(
+            latency_model="deterministic",
+            random_state=np.random.RandomState(seed=seed),
+            connected=True,
+            min_latency=np.zeros((len(agents), len(agents)), dtype=np.int64),
+        ),
         "default_computation_delay": 50,
         "custom_properties": {"oracle": oracle},
         "random_state_kernel": np.random.RandomState(seed=1),
