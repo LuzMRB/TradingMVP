@@ -20,6 +20,7 @@ from abides_markets.oracles import Oracle
 from abides_markets.utils import generate_latency_model
 
 from src.agents.lobster_replay_agent import LOBSTERReplayAgent
+from src.agents.buy_and_hold_agent import BuyAndHoldAgent
 
 
 class LOBSTEROracle(Oracle):
@@ -39,6 +40,7 @@ def build_config(
     num_levels: int = 10,
     seed: int = 42,
     stdout_log_level: str = "INFO",
+    starting_cash: int = 10_000_000,
 ):
     date_ns = int(pd.to_datetime(date).to_datetime64())
     mkt_open = date_ns + str_to_ns("09:30:00")
@@ -75,6 +77,14 @@ def build_config(
             num_levels=num_levels,
             log_orders=False,
             random_state=np.random.RandomState(seed=0),
+        ),
+        BuyAndHoldAgent(
+            id=2,
+            symbol=symbol,
+            date=date,
+            open_price=open_price,
+            starting_cash=starting_cash,
+            random_state=np.random.RandomState(seed=2),
         ),
     ]
 
