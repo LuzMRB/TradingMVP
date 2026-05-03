@@ -27,6 +27,9 @@ class LOBSTERReplayAgent(TradingAgent):
 
         self.symbol = symbol
 
+        # Medianoche del día en ns desde época Unix — base para convertir timestamps LOBSTER
+        self._midnight_ns = int(pd.to_datetime(date).to_datetime64())
+
         # Construir nombre del fichero
         msg_file = f"{filepath}/{symbol}_{date}_34200000_57600000_message_{num_levels}.csv"
 
@@ -58,13 +61,18 @@ class LOBSTERReplayAgent(TradingAgent):
         # Diccionario para trackear órdenes activas: order_id -> LimitOrder
         self.active_orders = {}
 
+    def get_wake_frequency(self) -> NanosecondTime:
+        # El TradingAgent base llama esto al recibir MarketHoursMsg para programar
+        # un wakeup en mkt_open + offset. Devolvemos un valor enorme para que caiga
+        # fuera del stop_time del kernel y no interfiera con los wakeups de LOBSTER.
+        return int(1e18)
+
     def kernel_starting(self, start_time: NanosecondTime) -> None:
         super().kernel_starting(start_time)
-        # start_time es medianoche del día en ns desde época Unix.
-        # Los timestamps de LOBSTER son ns desde medianoche, así que sumamos ambos.
-        self._start_time = start_time
+        # Los timestamps de LOBSTER son ns desde medianoche — sumamos el offset de medianoche
+        # calculado en __init__, independientemente de cuándo empiece el kernel.
         first_event_time = self.messages.iloc[0]["time_ns"]
-        self.set_wakeup(self._start_time + first_event_time)
+        self.set_wakeup(self._midnight_ns + first_event_time)
 
     def wakeup(self, current_time: NanosecondTime) -> None:
         super().wakeup(current_time)
@@ -98,7 +106,7 @@ class LOBSTERReplayAgent(TradingAgent):
         # Programar el siguiente wakeup si quedan eventos
         if self.current_idx < len(self.messages):
             next_time = self.messages.iloc[self.current_idx]["time_ns"]
-            self.set_wakeup(self._start_time + next_time)
+            self.set_wakeup(self._midnight_ns + next_time)
 
     def _process_event(self, event) -> None:
         order_type = event["type"]
