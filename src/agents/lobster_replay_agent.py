@@ -38,8 +38,8 @@ class LOBSTERReplayAgent(TradingAgent):
             "time", "type", "order_id", "size", "price", "direction"
         ])
 
-        # Convertir tiempo a nanosegundos
-        self.messages["time_ns"] = (self.messages["time"] * 1e9).astype(int)
+        # Convertir tiempo a nanosegundos — int64 explícito para evitar overflow en Windows
+        self.messages["time_ns"] = (self.messages["time"] * 1e9).astype(np.int64)
 
         # Ignorar tipo 7 (trading halt)
         self.messages = self.messages[self.messages["type"] != 7].reset_index(drop=True)
