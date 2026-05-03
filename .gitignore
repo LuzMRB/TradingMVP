@@ -1,0 +1,7 @@
+.gitignore
+*log/*
+.devcontainer/
+.claude/
+**/__pycache__/
+**/*.pyc
+data/
