@@ -9,14 +9,17 @@ from abides_core.utils import str_to_ns
 from abides_core.generators import ConstantTimeGenerator
 from abides_gym.envs.markets_environment import AbidesGymMarketsEnv
 
+LOB_LEVELS = 10
+
 
 class SpyGymEnv(AbidesGymMarketsEnv):
     """
-    Entorno Gym para trading con ABIDES.
+    Entorno Gym para trading direccional con ABIDES.
 
-    Observación (8 features flat):
-        [bid_p, bid_v, ask_p, ask_v, holdings, cash, mid_price, spread]
-        — todas normalizadas
+    Observación (44 features):
+        - 10 niveles bid: (precio_bps_desde_mid, log1p_volumen) → 20
+        - 10 niveles ask: (precio_bps_desde_mid, log1p_volumen) → 20
+        - 4 portfolio: (holdings_norm, cash_norm, pnl_norm, time_progress)
 
     Acciones:
         0 → MKT BUY  order_fixed_size acciones
@@ -27,9 +30,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
     """
 
     raw_state_pre_process = markets_agent_utils.ignore_buffers_decorator
-    raw_state_to_state_pre_process = (
-        markets_agent_utils.ignore_mkt_data_buffer_decorator
-    )
+    raw_state_to_state_pre_process = markets_agent_utils.ignore_buffers_decorator
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         timestep_duration: str = "60s",
         starting_cash: int = 1_000_000,
         order_fixed_size: int = 10,
+        max_inventory: int = 100,
         state_history_length: int = 2,
         market_data_buffer_length: int = 5,
         first_interval: str = "00:05:00",
@@ -50,15 +52,17 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.timestep_duration = str_to_ns(timestep_duration)
         self.starting_cash = starting_cash
         self.order_fixed_size = order_fixed_size
+        self.max_inventory = max_inventory
         self.state_history_length = state_history_length
         self.market_data_buffer_length = market_data_buffer_length
         self.first_interval = str_to_ns(first_interval)
 
-        # Ancla de normalización: r_bar de rmsc04 en centavos ($1000)
         self.price_norm = 100_000.0
-
-        # Para el cálculo de recompensa incremental
         self.previous_marked_to_market = float(self.starting_cash)
+        self.current_step = 0
+
+        total_time_ns = self.mkt_close - self.first_interval
+        self.total_steps = max(int(total_time_ns / self.timestep_duration), 1)
 
         background_config_args = {"end_time": self.mkt_close}
         background_config_args.update(background_config_extra_kvargs)
@@ -80,16 +84,17 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.num_actions = 3
         self.action_space = gym.spaces.Discrete(self.num_actions)
 
-        self.num_state_features = 8
+        self.num_state_features = LOB_LEVELS * 4 + 4  # 44
         self.observation_space = gym.spaces.Box(
-            low=-np.finfo(np.float32).max,
-            high=np.finfo(np.float32).max,
+            low=-np.inf,
+            high=np.inf,
             shape=(self.num_state_features,),
             dtype=np.float32,
         )
 
     def reset(self):
         self.previous_marked_to_market = float(self.starting_cash)
+        self.current_step = 0
         return super().reset()
 
     def _map_action_space_to_ABIDES_SIMULATOR_SPACE(
@@ -106,35 +111,37 @@ class SpyGymEnv(AbidesGymMarketsEnv):
     def raw_state_to_state(self, raw_state: Dict[str, Any]) -> np.ndarray:
         bids = raw_state["parsed_mkt_data"]["bids"]
         asks = raw_state["parsed_mkt_data"]["asks"]
-        last_transactions = raw_state["parsed_mkt_data"]["last_transaction"]
+        last_transaction = raw_state["parsed_mkt_data"]["last_transaction"]
+        holdings = raw_state["internal_data"]["holdings"]
+        cash = raw_state["internal_data"]["cash"]
 
-        mid_prices = [
-            markets_agent_utils.get_mid_price(b, a, lt)
-            for b, a, lt in zip(bids, asks, last_transactions)
-        ]
-        mid_price = mid_prices[-1]
+        mid_price = markets_agent_utils.get_mid_price(bids, asks, last_transaction)
+        if mid_price <= 0:
+            mid_price = float(last_transaction) if last_transaction > 0 else self.price_norm
 
-        bid_price, bid_vol = markets_agent_utils.get_val(bids[-1], 0)
-        ask_price, ask_vol = markets_agent_utils.get_val(asks[-1], 0)
-        spread = ask_price - bid_price
+        self.current_step += 1
+        time_progress = min(self.current_step / self.total_steps, 1.0)
 
-        holdings = raw_state["internal_data"]["holdings"][-1]
-        cash = raw_state["internal_data"]["cash"][-1]
+        features = []
+        for i in range(LOB_LEVELS):
+            price, vol = markets_agent_utils.get_val(bids, i)
+            bps = (price - mid_price) / mid_price * 10_000 if mid_price > 0 else 0.0
+            features.extend([float(bps), float(np.log1p(vol))])
 
-        p = self.price_norm
-        return np.array(
-            [
-                bid_price / p,
-                bid_vol / 100.0,
-                ask_price / p,
-                ask_vol / 100.0,
-                holdings / 100.0,
-                cash / self.starting_cash,
-                mid_price / p,
-                spread / p,
-            ],
-            dtype=np.float32,
-        )
+        for i in range(LOB_LEVELS):
+            price, vol = markets_agent_utils.get_val(asks, i)
+            bps = (price - mid_price) / mid_price * 10_000 if mid_price > 0 else 0.0
+            features.extend([float(bps), float(np.log1p(vol))])
+
+        unrealized_pnl = (cash + holdings * mid_price - self.starting_cash) / self.starting_cash
+        features.extend([
+            holdings / self.max_inventory,
+            cash / self.starting_cash,
+            float(unrealized_pnl),
+            time_progress,
+        ])
+
+        return np.array(features, dtype=np.float32)
 
     @raw_state_pre_process
     def raw_state_to_reward(self, raw_state: Dict[str, Any]) -> float:
