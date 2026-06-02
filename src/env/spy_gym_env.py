@@ -156,11 +156,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
 
     @raw_state_pre_process
     def raw_state_to_done(self, raw_state: Dict[str, Any]) -> bool:
-        holdings = raw_state["internal_data"]["holdings"]
-        cash = raw_state["internal_data"]["cash"]
-        last_transaction = raw_state["parsed_mkt_data"]["last_transaction"]
-        m2m = cash + holdings * last_transaction
-        return bool(m2m < 0.5 * self.starting_cash)
+        return False
 
     @raw_state_pre_process
     def raw_state_to_update_reward(self, raw_state: Dict[str, Any]) -> float:
