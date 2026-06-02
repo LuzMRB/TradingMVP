@@ -40,6 +40,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         starting_cash: int = 1_000_000,
         order_fixed_size: int = 10,
         max_inventory: int = 100,
+        inv_penalty_coef: float = 0.1,
         state_history_length: int = 2,
         market_data_buffer_length: int = 5,
         first_interval: str = "00:05:00",
@@ -53,6 +54,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.starting_cash = starting_cash
         self.order_fixed_size = order_fixed_size
         self.max_inventory = max_inventory
+        self.inv_penalty_coef = inv_penalty_coef
         self.state_history_length = state_history_length
         self.market_data_buffer_length = market_data_buffer_length
         self.first_interval = str_to_ns(first_interval)
@@ -150,9 +152,10 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         last_transaction = raw_state["parsed_mkt_data"]["last_transaction"]
 
         m2m = cash + holdings * last_transaction
-        reward = (m2m - self.previous_marked_to_market) / self.starting_cash
+        pnl = (m2m - self.previous_marked_to_market) / self.starting_cash
+        inv_penalty = self.inv_penalty_coef * (holdings / self.max_inventory) ** 2
         self.previous_marked_to_market = m2m
-        return float(reward)
+        return float(pnl - inv_penalty)
 
     @raw_state_pre_process
     def raw_state_to_done(self, raw_state: Dict[str, Any]) -> bool:
