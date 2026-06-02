@@ -150,7 +150,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         last_transaction = raw_state["parsed_mkt_data"]["last_transaction"]
 
         m2m = cash + holdings * last_transaction
-        reward = (m2m - self.previous_marked_to_market) / max(self.order_fixed_size, 1)
+        reward = (m2m - self.previous_marked_to_market) / self.starting_cash
         self.previous_marked_to_market = m2m
         return float(reward)
 
