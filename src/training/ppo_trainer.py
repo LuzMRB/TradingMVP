@@ -38,7 +38,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from src.agents.networks import ActorCritic
+from src.agents.networks import ActorCritic, TransformerActorCritic
 from src.training.rollout_buffer import RolloutBuffer
 
 
@@ -79,6 +79,7 @@ class PPOTrainer:
         hidden_dim: int = 256,
         checkpoint_dir: str = "experiments/mvp_results/checkpoints",
         device: str = "cpu",
+        architecture: str = "mlp",
     ):
         self.env = env
         self.clip_eps = clip_eps
@@ -91,12 +92,13 @@ class PPOTrainer:
         self.checkpoint_dir = checkpoint_dir
         self.device = torch.device(device)
 
-        # Dimensiones del env
-        obs_dim = env.observation_space.shape[0]     # 44
-        action_dim = env.action_space.n              # 11
+        obs_dim    = env.observation_space.shape[0]
+        action_dim = env.action_space.n
 
-        # Red neuronal
-        self.network = ActorCritic(obs_dim, action_dim, hidden_dim).to(self.device)
+        if architecture == "transformer":
+            self.network = TransformerActorCritic(obs_dim, action_dim).to(self.device)
+        else:
+            self.network = ActorCritic(obs_dim, action_dim, hidden_dim).to(self.device)
 
         # Optimizador
         self.optimizer = optim.Adam(self.network.parameters(), lr=lr)
