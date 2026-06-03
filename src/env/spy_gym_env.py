@@ -153,7 +153,8 @@ class SpyGymEnv(AbidesGymMarketsEnv):
 
         m2m = cash + holdings * last_transaction
         pnl = (m2m - self.previous_marked_to_market) / self.starting_cash
-        inv_penalty = self.inv_penalty_coef * (holdings / self.max_inventory) ** 2
+        inv_norm = min(abs(holdings) / self.max_inventory, 1.0)
+        inv_penalty = self.inv_penalty_coef * inv_norm ** 2
         self.previous_marked_to_market = m2m
         return float(pnl - inv_penalty)
 
