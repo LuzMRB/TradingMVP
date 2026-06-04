@@ -163,8 +163,10 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         pnl = (m2m - self.previous_marked_to_market) / self.starting_cash
         inv_norm = min(abs(holdings) / self.max_inventory, 1.0)
         inv_penalty = self.inv_penalty_coef * inv_norm ** 2
-        # Coste de oportunidad: penaliza cada step sin posición abierta
-        opp_cost = self.opportunity_cost_coef if holdings == 0 else 0.0
+        # Coste de oportunidad: proporcional al capital ocioso (sin invertir)
+        total_value = cash + holdings * last_transaction
+        invested = (holdings * last_transaction) / total_value if total_value > 0 else 0.0
+        opp_cost = self.opportunity_cost_coef * (1.0 - invested)
         self.previous_marked_to_market = m2m
         return float(pnl - inv_penalty - opp_cost)
 
