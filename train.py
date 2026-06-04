@@ -52,8 +52,7 @@ ENV_KWARGS = dict(
     timestep_duration="60s",
     starting_cash=1_000_000,
     order_fixed_size=10,
-    inv_penalty_coef=0.001,
-    opportunity_cost_coef=0.0002,
+    inv_penalty_coef=0.0001,
     first_interval="00:05:00",
 )
 # ══════════════════════════════════════════════
