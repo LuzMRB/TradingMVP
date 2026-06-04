@@ -33,10 +33,10 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_10envs_1Msteps_oppcost001"
+LABEL        = "PPO_Transformer_Pruebas_Parametros"
 ARCHITECTURE = "transformer"
 N_ENVS       = 10
-TOTAL_STEPS  = 1_000_000
+TOTAL_STEPS  = 100_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
 UPDATE_EPOCHS = 4
@@ -53,7 +53,7 @@ ENV_KWARGS = dict(
     starting_cash=1_000_000,
     order_fixed_size=10,
     inv_penalty_coef=0.001,
-    opportunity_cost_coef=0.001,
+    opportunity_cost_coef=0.0002,
     first_interval="00:05:00",
 )
 # ══════════════════════════════════════════════
@@ -108,25 +108,27 @@ def save_training_plot(trainer: PPOTrainer, path: str):
 
 
 def save_eval_plot(eval_results: dict, path: str):
-    rewards = eval_results["episode_rewards"]
+    pnls = eval_results["episode_pnl_pct"]
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     fig.suptitle(f"Evaluation — {LABEL}  (n={eval_results['n_episodes']})", fontsize=12)
 
     ax = axes[0]
-    ax.bar(range(len(rewards)), rewards, color=["seagreen" if r > 0 else "tomato" for r in rewards])
+    ax.bar(range(len(pnls)), [p * 100 for p in pnls], color=["seagreen" if p > 0 else "tomato" for p in pnls])
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
-    ax.axhline(eval_results["mean_reward"], color="navy", linewidth=1.5, linestyle="-", label=f"mean={eval_results['mean_reward']:.4f}")
-    ax.set_title("Episode Rewards (eval)")
+    mean_pct = eval_results["mean_pnl_pct"] * 100
+    ax.axhline(mean_pct, color="navy", linewidth=1.5, linestyle="-", label=f"mean={mean_pct:.2f}%")
+    ax.set_title("PnL real por episodio (%)")
     ax.set_xlabel("Episodio")
+    ax.set_ylabel("PnL (%)")
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
     ax = axes[1]
     stats = {
-        "mean":     eval_results["mean_reward"],
-        "std":      eval_results["std_reward"],
-        "sharpe":   eval_results["sharpe"],
-        "pct_pos":  eval_results["pct_positive"],
+        "mean_pnl%":  eval_results["mean_pnl_pct"] * 100,
+        "std_pnl%":   eval_results["std_pnl_pct"] * 100,
+        "sharpe":     eval_results["sharpe"],
+        "pct_pos":    eval_results["pct_positive"] * 100,
     }
     ax.barh(list(stats.keys()), list(stats.values()), color="steelblue")
     ax.axvline(0, color="black", linewidth=0.8)
@@ -171,7 +173,7 @@ def main():
         n_episodes=EVAL_EPISODES,
         device=DEVICE,
     )
-    print(f"  Eval mean_reward: {eval_results['mean_reward']:.4f}  sharpe: {eval_results['sharpe']:.3f}  pct_pos: {eval_results['pct_positive']:.1%}")
+    print(f"  Eval PnL real: {eval_results['mean_pnl_pct']:+.2%}  sharpe: {eval_results['sharpe']:.3f}  pct_pos: {eval_results['pct_positive']:.1%}")
 
     # ── Guardar JSON ─────────────────────────────
     output = {
