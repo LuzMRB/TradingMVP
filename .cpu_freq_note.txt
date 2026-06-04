@@ -1,0 +1,3 @@
+Techo de CPU puesto a 2500 MHz el 2026-06-04 para evitar throttling térmico en miniPC.
+Para revertir cuando se cambie la pasta térmica:
+    echo "4900000" | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq

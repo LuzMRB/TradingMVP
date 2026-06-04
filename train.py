@@ -33,10 +33,10 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_Pruebas_Parametros"
+LABEL        = "PPO_Transformer_v1"
 ARCHITECTURE = "transformer"
 N_ENVS       = 10
-TOTAL_STEPS  = 100_000
+TOTAL_STEPS  = 1_000_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
 UPDATE_EPOCHS = 4
@@ -128,10 +128,12 @@ def save_eval_plot(eval_results: dict, path: str):
         "mean_pnl%":  eval_results["mean_pnl_pct"] * 100,
         "std_pnl%":   eval_results["std_pnl_pct"] * 100,
         "sharpe":     eval_results["sharpe"],
-        "pct_pos":    eval_results["pct_positive"] * 100,
+        "pct_pos%":   eval_results["pct_positive"] * 100,
     }
-    ax.barh(list(stats.keys()), list(stats.values()), color="steelblue")
+    colors = ["seagreen" if v >= 0 else "tomato" for v in stats.values()]
+    ax.barh(list(stats.keys()), list(stats.values()), color=colors)
     ax.axvline(0, color="black", linewidth=0.8)
+    ax.set_xlabel("% / ratio")
     ax.set_title("Eval metrics")
     ax.grid(True, alpha=0.3)
 
