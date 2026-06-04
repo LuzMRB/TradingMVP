@@ -23,7 +23,6 @@ def evaluate_model(network, env_fn: Callable, n_episodes: int = 20, device: str 
     ep_final_hold = []
     ep_pnl_pct   = []  # PnL real sin penalizaciones
 
-    use_gru = hasattr(network, 'gru')
     env = env_fn()
     starting_cash = env.starting_cash
 
@@ -32,15 +31,11 @@ def evaluate_model(network, env_fn: Callable, n_episodes: int = 20, device: str 
         done = False
         total_reward = 0.0
         steps = 0
-        h = torch.zeros(1, 1, network.d_model, device=dev) if use_gru else None
 
         while not done:
             with torch.no_grad():
                 obs_t = torch.FloatTensor(obs).unsqueeze(0).to(dev)
-                if use_gru:
-                    logits, _, h = network.forward(obs_t, h)
-                else:
-                    logits, _ = network.forward(obs_t)
+                logits, _ = network.forward(obs_t)
                 action = logits.argmax(dim=-1).item()   # greedy
 
             obs, reward, done, info = env.step(action)
