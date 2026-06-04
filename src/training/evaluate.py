@@ -42,7 +42,7 @@ def evaluate_model(network, env_fn: Callable, n_episodes: int = 20, device: str 
         while not done:
             with torch.no_grad():
                 obs_t = torch.FloatTensor(obs).unsqueeze(0).to(dev)
-                logits = network.actor(obs_t)
+                logits, _ = network.forward(obs_t)
                 action = logits.argmax(dim=-1).item()   # greedy
 
             obs, reward, done, info = env.step(action)
