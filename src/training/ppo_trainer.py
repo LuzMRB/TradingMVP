@@ -120,6 +120,10 @@ class PPOTrainer:
         self.total_steps = 0
         self.total_updates = 0
         self.episode_rewards: list = []
+        self.value_losses: list = []
+        self.policy_losses: list = []
+        self.entropies: list = []
+        self._fps_samples: list = []
         # Para n_envs>1 llevamos reward acumulado por env
         self.current_episode_reward = np.zeros(n_envs, dtype=np.float32)
 
@@ -160,9 +164,16 @@ class PPOTrainer:
             self.total_updates += 1
             self.buffer.reset()
 
+            # Guardar curvas de entrenamiento
+            self.value_losses.append(update_info["value_loss"])
+            self.policy_losses.append(update_info["policy_loss"])
+            self.entropies.append(update_info["entropy"])
+
+            elapsed = time.time() - start_time
+            fps = self.total_steps / elapsed if elapsed > 0 else 0
+            self._fps_samples.append(fps)
+
             if self.total_updates % log_interval == 0:
-                elapsed = time.time() - start_time
-                fps = self.total_steps / elapsed if elapsed > 0 else 0
                 avg_reward = (
                     np.mean(self.episode_rewards[-10:])
                     if self.episode_rewards else 0.0
