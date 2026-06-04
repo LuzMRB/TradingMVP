@@ -12,7 +12,7 @@ import numpy as np
 from typing import Callable, List
 
 
-def _worker(conn: mp.connection.Connection, env_fn: Callable):
+def _worker(conn, env_fn: Callable):
     """Proceso worker. Vive en un loop recibiendo comandos por pipe."""
     env = env_fn()
     try:
