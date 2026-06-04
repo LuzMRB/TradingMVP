@@ -62,6 +62,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.price_norm = 100_000.0
         self.previous_marked_to_market = float(self.starting_cash)
         self.current_step = 0
+        self.current_mid_price = float(self.price_norm)
 
         total_time_ns = self.mkt_close - self.first_interval
         self.total_steps = max(int(total_time_ns / self.timestep_duration), 1)
@@ -97,17 +98,18 @@ class SpyGymEnv(AbidesGymMarketsEnv):
     def reset(self):
         self.previous_marked_to_market = float(self.starting_cash)
         self.current_step = 0
+        self.current_mid_price = float(self.price_norm)
         return super().reset()
 
     def _map_action_space_to_ABIDES_SIMULATOR_SPACE(
         self, action: int
     ) -> List[Dict[str, Any]]:
-        if action == 0:
+        holdings = getattr(self, '_last_holdings', 0)
+        if action == 0 and holdings < self.max_inventory:
             return [{"type": "MKT", "direction": "BUY", "size": self.order_fixed_size}]
-        elif action == 1:
-            return []
-        else:
+        elif action == 2 and holdings > 0:
             return [{"type": "MKT", "direction": "SELL", "size": self.order_fixed_size}]
+        return []
 
     @raw_state_to_state_pre_process
     def raw_state_to_state(self, raw_state: Dict[str, Any]) -> np.ndarray:
@@ -120,6 +122,8 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         mid_price = markets_agent_utils.get_mid_price(bids, asks, last_transaction)
         if mid_price <= 0:
             mid_price = float(last_transaction) if last_transaction > 0 else self.price_norm
+        self.current_mid_price = float(mid_price)
+        self._last_holdings = int(holdings)
 
         self.current_step += 1
         time_progress = min(self.current_step / self.total_steps, 1.0)
@@ -169,6 +173,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
     @raw_state_pre_process
     def raw_state_to_info(self, raw_state: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "holdings": raw_state["internal_data"]["holdings"],
-            "cash": raw_state["internal_data"]["cash"],
+            "holdings":  raw_state["internal_data"]["holdings"],
+            "cash":      raw_state["internal_data"]["cash"],
+            "mid_price": self.current_mid_price,
         }
