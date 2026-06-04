@@ -71,6 +71,7 @@ class PPOTrainer:
         checkpoint_dir: str = "experiments/mvp_results/checkpoints",
         device: str = "cpu",
         architecture: str = "mlp",
+        n_frames: int = 1,
     ):
         # Retrocompatibilidad: env= directo (notebook antiguo)
         if env is not None and env_fn is None:
@@ -102,7 +103,7 @@ class PPOTrainer:
 
         # Red neuronal
         if architecture == "transformer":
-            self.network = TransformerActorCritic(obs_dim, action_dim).to(self.device)
+            self.network = TransformerActorCritic(obs_dim, action_dim, n_frames=n_frames).to(self.device)
         else:
             self.network = ActorCritic(obs_dim, action_dim, hidden_dim).to(self.device)
 

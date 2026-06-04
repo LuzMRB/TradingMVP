@@ -27,16 +27,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.env.spy_gym_env import SpyGymEnv
+from src.env.frame_stack import FrameStackWrapper
 from src.training.ppo_trainer import PPOTrainer
 from src.training.evaluate import evaluate_model
 
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_v1"
+LABEL        = "PPO_Transformer_v2_framestack10"
 ARCHITECTURE = "transformer"
 N_ENVS       = 10
-TOTAL_STEPS  = 1_000_000
+N_FRAMES     = 10
+TOTAL_STEPS  = 2_000_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
 UPDATE_EPOCHS = 4
@@ -60,7 +62,7 @@ ENV_KWARGS = dict(
 
 
 def env_fn():
-    return SpyGymEnv(**ENV_KWARGS)
+    return FrameStackWrapper(SpyGymEnv(**ENV_KWARGS), n_frames=N_FRAMES)
 
 
 def save_training_plot(trainer: PPOTrainer, path: str):
@@ -163,6 +165,7 @@ def main():
         architecture=ARCHITECTURE,
         device=DEVICE,
         checkpoint_dir=os.path.join(run_dir, "checkpoints"),
+        n_frames=N_FRAMES,
     )
 
     trainer.train(total_steps=TOTAL_STEPS, log_interval=1)

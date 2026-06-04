@@ -100,10 +100,14 @@ class TransformerActorCritic(nn.Module):
         nhead: int = 4,
         num_layers: int = 2,
         dropout: float = 0.1,
+        n_frames: int = 1,
     ):
         super().__init__()
-        self.seq_len   = 11   # 10 niveles LOB + 1 portfolio
-        self.token_dim = 4    # features por token
+        # Con frame stacking: obs_dim = n_frames * 44
+        # Cada frame se tokeniza en 11 tokens de 4 dims → total n_frames*11 tokens
+        self.n_frames  = n_frames
+        self.seq_len   = 11 * n_frames   # tokens totales
+        self.token_dim = 4               # features por token
         self.d_model   = d_model
 
         # Proyección token_dim → d_model
