@@ -192,6 +192,8 @@ class PPOTrainer:
                 self.save_checkpoint(f"checkpoint_{self.total_steps}.pt")
 
         self.save_checkpoint("best_model.pt")
+        if self.n_envs > 1:
+            self.env.close()
         print(f"\nEntrenamiento completado: {total_steps} steps")
 
     # ================================================================
