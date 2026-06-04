@@ -33,7 +33,7 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_10envs_1Msteps_ent0005_holdpen"
+LABEL        = "PPO_Transformer_10envs_1Msteps_oppcost001"
 ARCHITECTURE = "transformer"
 N_ENVS       = 10
 TOTAL_STEPS  = 1_000_000
@@ -53,7 +53,7 @@ ENV_KWARGS = dict(
     starting_cash=1_000_000,
     order_fixed_size=10,
     inv_penalty_coef=0.001,
-    hold_penalty_coef=0.0001,
+    opportunity_cost_coef=0.001,
     first_interval="00:05:00",
 )
 # ══════════════════════════════════════════════
