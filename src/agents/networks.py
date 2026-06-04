@@ -102,8 +102,9 @@ class TransformerActorCritic(nn.Module):
         dropout: float = 0.1,
     ):
         super().__init__()
-        self.seq_len = 11   # 10 niveles LOB + 1 portfolio
-        self.token_dim = 4  # features por token
+        self.seq_len   = 11   # 10 niveles LOB + 1 portfolio
+        self.token_dim = 4    # features por token
+        self.d_model   = d_model
 
         # Proyección token_dim → d_model
         self.input_proj = nn.Linear(self.token_dim, d_model)
@@ -123,7 +124,11 @@ class TransformerActorCritic(nn.Module):
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        # Cabezas actor y critic
+        # GRU: memoria temporal entre steps del episodio
+        # h: (1, batch, d_model) — se propaga entre steps, se resetea al inicio de episodio
+        self.gru = nn.GRU(input_size=d_model, hidden_size=d_model, batch_first=False)
+
+        # Cabezas actor y critic leen del output del GRU
         self.actor  = nn.Linear(d_model, action_dim)
         self.critic = nn.Linear(d_model, 1)
 
@@ -136,26 +141,41 @@ class TransformerActorCritic(nn.Module):
         nn.init.constant_(self.critic.bias, 0.0)
 
     def _encode(self, obs: torch.Tensor) -> torch.Tensor:
-        # obs: (..., 44) → (..., 11, 4) → transformer → mean pool → (..., d_model)
-        batch_shape = obs.shape[:-1]
-        tokens = obs.reshape(*batch_shape, self.seq_len, self.token_dim)
-        flat   = tokens.reshape(-1, self.seq_len, self.token_dim)
-        x = self.input_proj(flat) + self.pe
+        # obs: (batch, 44) → tokens → transformer → mean pool → (batch, d_model)
+        B = obs.shape[0]
+        tokens = obs.reshape(B, self.seq_len, self.token_dim)
+        x = self.input_proj(tokens) + self.pe
         x = self.transformer(x)
-        x = x.mean(dim=1)          # mean pooling sobre tokens
-        return x.reshape(*batch_shape, -1)
+        return x.mean(dim=1)   # (batch, d_model)
 
-    def forward(self, obs: torch.Tensor):
-        features = self._encode(obs)
-        return self.actor(features), self.critic(features)
+    def forward(self, obs: torch.Tensor, h: torch.Tensor = None):
+        """
+        Args:
+            obs: (batch, 44)
+            h:   (1, batch, d_model) estado oculto GRU. None → zeros.
+        Returns:
+            logits: (batch, action_dim)
+            value:  (batch, 1)
+            h_next: (1, batch, d_model)
+        """
+        features = self._encode(obs)                      # (batch, d_model)
+        gru_out, h_next = self.gru(features.unsqueeze(0), h)  # (1, batch, d_model)
+        out = gru_out.squeeze(0)                          # (batch, d_model)
+        return self.actor(out), self.critic(out), h_next
 
-    def get_action_and_value(self, obs: torch.Tensor):
-        logits, value = self.forward(obs)
+    def get_action_and_value(self, obs: torch.Tensor, h: torch.Tensor = None):
+        """Usado durante rollout. Propaga h entre steps."""
+        logits, value, h_next = self.forward(obs, h)
         dist   = Categorical(logits=logits)
         action = dist.sample()
-        return action, dist.log_prob(action), value.squeeze(-1)
+        return action, dist.log_prob(action), value.squeeze(-1), h_next
 
-    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor):
-        logits, values = self.forward(obs)
+    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor, h: torch.Tensor = None):
+        """
+        Usado durante PPO update. h=None → zeros (opción B).
+        Aproximación: ignora el estado oculto real del rollout.
+        Líneas futuras: implementar TBPTT (opción A) para propagación exacta.
+        """
+        logits, values, _ = self.forward(obs, h)
         dist = Categorical(logits=logits)
         return dist.log_prob(actions), dist.entropy(), values.squeeze(-1)

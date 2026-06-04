@@ -127,6 +127,14 @@ class PPOTrainer:
         # Para n_envs>1 llevamos reward acumulado por env
         self.current_episode_reward = np.zeros(n_envs, dtype=np.float32)
 
+        # Estado oculto GRU — shape (1, n_envs, d_model), solo si la red tiene GRU
+        self._use_gru = hasattr(self.network, 'gru')
+        if self._use_gru:
+            d = self.network.d_model
+            self.h = torch.zeros(1, n_envs, d, device=self.device)
+        else:
+            self.h = None
+
     # ================================================================
     # MÉTODO PRINCIPAL: train()
     # ================================================================
@@ -146,13 +154,18 @@ class PPOTrainer:
             # Calcular ventajas con GAE
             with torch.no_grad():
                 if self.n_envs == 1:
-                    obs_t = torch.FloatTensor(obs).to(self.device)
-                    _, _, last_value = self.network.get_action_and_value(obs_t)
-                    last_value_np = last_value.item()
+                    obs_t = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
                 else:
                     obs_t = torch.FloatTensor(obs).to(self.device)   # (N, obs_dim)
-                    # Procesar todos los envs en un batch
+
+                if self._use_gru:
+                    _, _, last_values, _ = self.network.get_action_and_value(obs_t, self.h)
+                else:
                     _, _, last_values = self.network.get_action_and_value(obs_t)
+
+                if self.n_envs == 1:
+                    last_value_np = last_values.squeeze().item()
+                else:
                     last_value_np = last_values.cpu().numpy()         # (N,)
 
             self.buffer.compute_gae(
@@ -204,18 +217,25 @@ class PPOTrainer:
 
         for _ in range(self.rollout_length):
             with torch.no_grad():
-                obs_t = torch.FloatTensor(obs).to(self.device)
-                action, log_prob, value = self.network.get_action_and_value(obs_t)
+                if self.n_envs == 1:
+                    obs_t = torch.FloatTensor(obs).unsqueeze(0).to(self.device)  # (1, obs_dim)
+                else:
+                    obs_t = torch.FloatTensor(obs).to(self.device)               # (N, obs_dim)
+
+                if self._use_gru:
+                    action, log_prob, value, self.h = self.network.get_action_and_value(obs_t, self.h)
+                else:
+                    action, log_prob, value = self.network.get_action_and_value(obs_t)
 
             if self.n_envs == 1:
-                next_obs, reward, done, _ = self.env.step(action.item())
+                next_obs, reward, done, _ = self.env.step(action.squeeze().item())
                 self.buffer.add(
                     obs=obs,
-                    action=action.item(),
+                    action=action.squeeze().item(),
                     reward=reward,
                     done=done,
-                    log_prob=log_prob.item(),
-                    value=value.item(),
+                    log_prob=log_prob.squeeze().item(),
+                    value=value.squeeze().item(),
                 )
                 self.total_steps += 1
                 self.current_episode_reward[0] += reward
@@ -223,15 +243,15 @@ class PPOTrainer:
                     self.episode_rewards.append(float(self.current_episode_reward[0]))
                     self.current_episode_reward[0] = 0.0
                     next_obs = self.env.reset()
+                    if self._use_gru:
+                        self.h.zero_()
                 last_done = done
             else:
-                # action, log_prob, value son shape (N,) cuando obs es (N, obs_dim)
                 actions_np   = action.cpu().numpy()    # (N,)
                 log_probs_np = log_prob.cpu().numpy()  # (N,)
                 values_np    = value.cpu().numpy()     # (N,)
 
                 next_obs, rewards, dones, _ = self.env.step(actions_np)
-                # next_obs está ya auto-reseteado por el worker cuando done=True
 
                 self.buffer.add(
                     obs=obs,
@@ -247,6 +267,8 @@ class PPOTrainer:
                     if done:
                         self.episode_rewards.append(float(self.current_episode_reward[i]))
                         self.current_episode_reward[i] = 0.0
+                        if self._use_gru:
+                            self.h[:, i, :].zero_()  # resetear h del env que terminó
                 last_done = dones
 
             obs = next_obs
