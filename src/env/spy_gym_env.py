@@ -41,6 +41,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         order_fixed_size: int = 10,
         max_inventory: int = 100,
         inv_penalty_coef: float = 0.0001,
+        opportunity_cost_coef: float = 0.0001,
         state_history_length: int = 2,
         market_data_buffer_length: int = 5,
         first_interval: str = "00:05:00",
@@ -55,6 +56,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.order_fixed_size = order_fixed_size
         self.max_inventory = max_inventory
         self.inv_penalty_coef = inv_penalty_coef
+        self.opportunity_cost_coef = opportunity_cost_coef
         self.state_history_length = state_history_length
         self.market_data_buffer_length = market_data_buffer_length
         self.first_interval = str_to_ns(first_interval)
@@ -158,8 +160,11 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         m2m = cash + holdings * last_transaction
         pnl = (m2m - self.previous_marked_to_market) / self.starting_cash
         inv_penalty = self.inv_penalty_coef * abs(holdings) / self.max_inventory
+        total_value = cash + holdings * last_transaction
+        invested = (holdings * last_transaction) / total_value if total_value > 0 else 0.0
+        opp_cost = self.opportunity_cost_coef * (1.0 - invested)
         self.previous_marked_to_market = m2m
-        return float(pnl - inv_penalty)
+        return float(pnl - inv_penalty - opp_cost)
 
     @raw_state_pre_process
     def raw_state_to_done(self, raw_state: Dict[str, Any]) -> bool:
