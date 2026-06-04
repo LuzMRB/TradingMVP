@@ -31,7 +31,7 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 LABEL        = "PPO_Transformer_12envs"
 ARCHITECTURE = "transformer"   # "mlp" o "transformer"
-N_ENVS       = 12              # núcleos libres (14 - 2)
+N_ENVS       = 10              # núcleos libres
 TOTAL_STEPS  = 500_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
