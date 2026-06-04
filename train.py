@@ -13,7 +13,11 @@ Al terminar guarda en results/{LABEL}:
 
 import json
 import os
+import sys
 import warnings
+
+# Añade la raíz del proyecto al path para que 'src' sea importable
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 warnings.filterwarnings("ignore")
 
@@ -29,10 +33,10 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_12envs"
+LABEL        = "PPO_Transformer_12envs_100ksteps"  # etiqueta para archivos de salida
 ARCHITECTURE = "transformer"   # "mlp" o "transformer"
-N_ENVS       = 10              # núcleos libres
-TOTAL_STEPS  = 500_000
+N_ENVS       = 12              # núcleos libres
+TOTAL_STEPS  = 100_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
 UPDATE_EPOCHS = 4
