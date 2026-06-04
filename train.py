@@ -33,15 +33,15 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_12envs_100ksteps"  # etiqueta para archivos de salida
-ARCHITECTURE = "transformer"   # "mlp" o "transformer"
-N_ENVS       = 12              # núcleos libres
-TOTAL_STEPS  = 100_000
+LABEL        = "PPO_Transformer_10envs_1Msteps_ent0005_holdpen"
+ARCHITECTURE = "transformer"
+N_ENVS       = 10
+TOTAL_STEPS  = 1_000_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
 UPDATE_EPOCHS = 4
 LR           = 1e-4
-ENTROPY_COEF = 0.05
+ENTROPY_COEF = 0.005
 DEVICE       = "cpu"
 RESULTS_DIR  = "results"
 EVAL_EPISODES = 20
@@ -53,6 +53,7 @@ ENV_KWARGS = dict(
     starting_cash=1_000_000,
     order_fixed_size=10,
     inv_penalty_coef=0.001,
+    hold_penalty_coef=0.0001,
     first_interval="00:05:00",
 )
 # ══════════════════════════════════════════════
@@ -139,7 +140,8 @@ def save_eval_plot(eval_results: dict, path: str):
 
 
 def main():
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    run_dir = os.path.join(RESULTS_DIR, LABEL)
+    os.makedirs(run_dir, exist_ok=True)
 
     print(f"\n{'='*55}")
     print(f"  {LABEL}")
@@ -156,9 +158,10 @@ def main():
         entropy_coef=ENTROPY_COEF,
         architecture=ARCHITECTURE,
         device=DEVICE,
+        checkpoint_dir=os.path.join(run_dir, "checkpoints"),
     )
 
-    trainer.train(total_steps=TOTAL_STEPS, log_interval=10)
+    trainer.train(total_steps=TOTAL_STEPS, log_interval=1)
 
     # ── Evaluación ──────────────────────────────
     print("\nEvaluando política entrenada...")
@@ -194,16 +197,16 @@ def main():
         "eval": eval_results,
     }
 
-    json_path = os.path.join(RESULTS_DIR, f"{LABEL}.json")
+    json_path = os.path.join(run_dir, f"{LABEL}.json")
     with open(json_path, "w") as f:
         json.dump(output, f, indent=2)
     print(f"  JSON guardado:  {json_path}")
 
     # ── Plots ────────────────────────────────────
-    save_training_plot(trainer, os.path.join(RESULTS_DIR, f"{LABEL}_training.png"))
-    save_eval_plot(eval_results, os.path.join(RESULTS_DIR, f"{LABEL}_eval.png"))
+    save_training_plot(trainer, os.path.join(run_dir, f"{LABEL}_training.png"))
+    save_eval_plot(eval_results, os.path.join(run_dir, f"{LABEL}_eval.png"))
 
-    print(f"\nListo. Resultados en {RESULTS_DIR}/")
+    print(f"\nListo. Resultados en {run_dir}/")
 
 
 if __name__ == "__main__":

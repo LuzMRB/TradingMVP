@@ -41,6 +41,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         order_fixed_size: int = 10,
         max_inventory: int = 100,
         inv_penalty_coef: float = 0.1,
+        hold_penalty_coef: float = 0.0001,
         state_history_length: int = 2,
         market_data_buffer_length: int = 5,
         first_interval: str = "00:05:00",
@@ -55,6 +56,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.order_fixed_size = order_fixed_size
         self.max_inventory = max_inventory
         self.inv_penalty_coef = inv_penalty_coef
+        self.hold_penalty_coef = hold_penalty_coef
         self.state_history_length = state_history_length
         self.market_data_buffer_length = market_data_buffer_length
         self.first_interval = str_to_ns(first_interval)
@@ -63,6 +65,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         self.previous_marked_to_market = float(self.starting_cash)
         self.current_step = 0
         self.current_mid_price = float(self.price_norm)
+        self._last_action = 1  # HOLD por defecto
 
         total_time_ns = self.mkt_close - self.first_interval
         self.total_steps = max(int(total_time_ns / self.timestep_duration), 1)
@@ -104,6 +107,7 @@ class SpyGymEnv(AbidesGymMarketsEnv):
     def _map_action_space_to_ABIDES_SIMULATOR_SPACE(
         self, action: int
     ) -> List[Dict[str, Any]]:
+        self._last_action = action
         holdings = getattr(self, '_last_holdings', 0)
         if action == 0 and holdings < self.max_inventory:
             return [{"type": "MKT", "direction": "BUY", "size": self.order_fixed_size}]
@@ -159,8 +163,9 @@ class SpyGymEnv(AbidesGymMarketsEnv):
         pnl = (m2m - self.previous_marked_to_market) / self.starting_cash
         inv_norm = min(abs(holdings) / self.max_inventory, 1.0)
         inv_penalty = self.inv_penalty_coef * inv_norm ** 2
+        hold_penalty = self.hold_penalty_coef if self._last_action == 1 else 0.0
         self.previous_marked_to_market = m2m
-        return float(pnl - inv_penalty)
+        return float(pnl - inv_penalty - hold_penalty)
 
     @raw_state_pre_process
     def raw_state_to_done(self, raw_state: Dict[str, Any]) -> bool:

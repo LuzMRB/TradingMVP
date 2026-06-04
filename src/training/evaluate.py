@@ -33,7 +33,7 @@ def evaluate_model(network, env_fn: Callable, n_episodes: int = 20, device: str 
 
     env = env_fn()
 
-    for _ in range(n_episodes):
+    for ep in range(n_episodes):
         obs = env.reset()
         done = False
         total_reward = 0.0
@@ -53,6 +53,7 @@ def evaluate_model(network, env_fn: Callable, n_episodes: int = 20, device: str 
         ep_lengths.append(steps)
         ep_final_hold.append(int(info.get("holdings", 0)))
         ep_final_pnl.append(float(info.get("cash", 0)))
+        print(f"  Eval ep {ep+1:>2d}/{n_episodes} | reward: {total_reward:>8.4f} | steps: {steps} | holdings: {info.get('holdings', 0)}")
 
     env.close()
     network.train()
