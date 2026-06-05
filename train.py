@@ -34,16 +34,16 @@ from src.training.evaluate import evaluate_model
 # ══════════════════════════════════════════════
 # CONFIGURACIÓN — edita aquí para cada experimento
 # ══════════════════════════════════════════════
-LABEL        = "PPO_Transformer_v2_framestack10"
+LABEL        = "PPO_Transformer_v3_ent002"
 ARCHITECTURE = "transformer"
 N_ENVS       = 10
 N_FRAMES     = 10
-TOTAL_STEPS  = 2_000_000
+TOTAL_STEPS  = 1_000_000
 ROLLOUT_LEN  = 1024
 BATCH_SIZE   = 256
 UPDATE_EPOCHS = 4
 LR           = 1e-4
-ENTROPY_COEF = 0.005
+ENTROPY_COEF = 0.02
 DEVICE       = "cpu"
 RESULTS_DIR  = "results"
 EVAL_EPISODES = 20
