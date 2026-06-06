@@ -48,6 +48,9 @@ DEVICE       = "cpu"
 RESULTS_DIR  = "results"
 EVAL_EPISODES = 20
 
+# Checkpoint para continuar entrenamiento (None = entrenar desde cero)
+LOAD_CHECKPOINT = None
+
 ENV_KWARGS = dict(
     background_config="rmsc04",
     mkt_close="16:00:00",
@@ -167,6 +170,11 @@ def main():
         checkpoint_dir=os.path.join(run_dir, "checkpoints"),
         n_frames=N_FRAMES,
     )
+
+    if LOAD_CHECKPOINT:
+        trainer.load_checkpoint(LOAD_CHECKPOINT)
+        print(f"  Continuando desde step {trainer.total_steps:,}\n")
+        trainer.total_steps = 0   # resetear contador para entrenar TOTAL_STEPS nuevos
 
     trainer.train(total_steps=TOTAL_STEPS, log_interval=1)
 
