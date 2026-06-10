@@ -1,0 +1,26 @@
+{
+  "PPO_Transformer_v3": {
+    "agent_mean_pnl": -0.012562933333333332,
+    "agent_sharpe": -0.5661329256898997,
+    "bh_mean_pnl": -0.0012177173255885436,
+    "bh_sharpe": -0.5424758232636292,
+    "macd_mean_pnl": 0.0033846666666666665,
+    "macd_sharpe": 1.6649322703145326,
+    "alpha_vs_bh": -0.011345216007744791,
+    "alpha_vs_macd": -0.015947600000000003,
+    "pct_beats_bh": 0.36666666666666664,
+    "pct_beats_macd": 0.2
+  },
+  "MAPPO_Dual_v3": {
+    "agent_mean_pnl": -0.012843666666666666,
+    "agent_sharpe": -0.5896686173729876,
+    "bh_mean_pnl": -0.0012945753030385381,
+    "bh_sharpe": -0.5969414519400474,
+    "macd_mean_pnl": 0.003349,
+    "macd_sharpe": 1.715500115035854,
+    "alpha_vs_bh": -0.01154909136362813,
+    "alpha_vs_macd": -0.01619266666666667,
+    "pct_beats_bh": 0.3333333333333333,
+    "pct_beats_macd": 0.2
+  }
+}
